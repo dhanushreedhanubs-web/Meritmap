@@ -1,122 +1,241 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from "react";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [profile, setProfile] = useState({
+    name: "",
+    state: "",
+    course: "",
+    year: "",
+    income: "",
+    category: "",
+    gender: "",
+    marks: "",
+  });
+
+  const handleChange = (e) => {
+    setProfile({
+      ...profile,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const requiredFields = [
+    "name",
+    "state",
+    "course",
+    "year",
+    "income",
+    "category",
+    "gender",
+    "marks",
+  ];
+
+  const isComplete = requiredFields.every(
+    (field) => String(profile[field]).trim() !== ""
+  );
+
+  if (!isComplete) {
+    alert("Please complete all fields before continuing.");
+    return;
+  }
+
+  try {
+    // Send student profile to backend
+    const profileResponse = await fetch(
+      "http://localhost:5000/api/profile",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(profile),
+      }
+    );
+
+    const profileData = await profileResponse.json();
+
+    console.log("Profile response:", profileData);
+
+    // Create search query from student's profile
+    const query = `${profile.course} scholarships ${profile.state} ${profile.category}`;
+
+    // Ask backend for scholarships
+    const searchResponse = await fetch(
+      "http://localhost:5000/api/search",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: query,
+        }),
+      }
+    );
+
+    const searchData = await searchResponse.json();
+
+    console.log("Scholarship results:", searchData);
+
+    alert("Scholarship search completed! 🎓");
+  } catch (error) {
+    console.error("Error:", error);
+    alert("Could not connect to the backend.");
+  }
+};
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
+    <div className="app">
+      <header className="navbar">
+        <div className="logo">🎓 MeritMap</div>
+        <span className="tagline">Find opportunities made for you</span>
+      </header>
+
+      <main className="container">
+        <section className="hero">
+          <h1>Find Scholarships You Qualify For</h1>
           <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+            Tell us about yourself and MeritMap will help you discover
+            scholarships and government benefits that match your profile.
           </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        </section>
 
-      <div className="ticks"></div>
+        <section className="form-card">
+          <h2>Student Profile</h2>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          <p className="form-subtitle">
+            Enter your details to find personalized opportunities.
+          </p>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          <form onSubmit={handleSubmit}>
+            <div className="form-grid">
+              <div className="field">
+                <label>Full Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Enter your name"
+                  value={profile.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>State</label>
+                <input
+                  type="text"
+                  name="state"
+                  placeholder="e.g. Karnataka"
+                  value={profile.state}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>Course</label>
+                <input
+                  type="text"
+                  name="course"
+                  placeholder="e.g. BCA"
+                  value={profile.course}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>Year of Study</label>
+                <input
+                  type="number"
+                  name="year"
+                  placeholder="e.g. 2"
+                  value={profile.year}
+                  onChange={handleChange}
+                  min="1"
+                  max="6"
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>Annual Family Income (₹)</label>
+                <input
+                  type="number"
+                  name="income"
+                  placeholder="e.g. 250000"
+                  value={profile.income}
+                  onChange={handleChange}
+                  min="0"
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>Category</label>
+                <select
+                  name="category"
+                  value={profile.category}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select category</option>
+                  <option value="General">General</option>
+                  <option value="OBC">OBC</option>
+                  <option value="SC">SC</option>
+                  <option value="ST">ST</option>
+                  <option value="EWS">EWS</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Gender</label>
+                <select
+                  name="gender"
+                  value={profile.gender}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select gender</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Marks / CGPA</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="marks"
+                  placeholder="e.g. 8.5"
+                  value={profile.marks}
+                  onChange={handleChange}
+                  min="0"
+                  max="10"
+                  required
+                />
+              </div>
+            </div>
+
+            <button type="submit" className="submit-btn">
+              Find Scholarships 🚀
+            </button>
+          </form>
+        </section>
+      </main>
+
+      <footer>
+        <p>© 2026 MeritMap • Discover. Match. Achieve.</p>
+      </footer>
+    </div>
+  );
 }
 
-export default App
+export default App;
