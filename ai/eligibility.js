@@ -55,14 +55,18 @@ function checkEligibility(student, scholarship) {
     reasons.push("Course does not match");
   }
 
-  
   // Income
   if (
     typeof student.income !== "number" ||
-    typeof scholarship.incomeLimit !== "number"
+    !Number.isFinite(student.income) ||
+    student.income < 0 ||
+    typeof scholarship.incomeLimit !== "number" ||
+    !Number.isFinite(scholarship.incomeLimit) ||
+    scholarship.incomeLimit < 0
   ) {
     reasons.push("Family income needs verification");
     needsVerification = true;
+    verificationCount++;
   } else if (student.income <= scholarship.incomeLimit) {
     passed++;
     reasons.push("Income is within the limit");
@@ -71,9 +75,6 @@ function checkEligibility(student, scholarship) {
     hardFailure = true;
     reasons.push("Family income exceeds the limit");
   }
-
-
-  
   
   // Marks
   if (
