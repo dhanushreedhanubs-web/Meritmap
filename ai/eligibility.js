@@ -103,9 +103,24 @@ function checkEligibility(student, scholarship) {
     }
   }
   // Category
+
+  // Category
   if (
+    student.category === undefined ||
+    student.category === null ||
+    typeof student.category !== "string" ||
+    student.category.trim() === "" ||
+    (scholarship.categories !== undefined &&
+      scholarship.categories !== null &&
+      !Array.isArray(scholarship.categories))
+  ) {
+    reasons.push("Category information needs verification");
+    needsVerification = true;
+    verificationCount++;
+  } else if (
     !scholarship.categories ||
-    scholarship.categories.includes(student.category)
+    scholarship.categories.length === 0 ||
+    scholarship.categories.includes(student.category.trim())
   ) {
     passed++;
     reasons.push("Category matches");
@@ -113,7 +128,7 @@ function checkEligibility(student, scholarship) {
     failed++;
     reasons.push("Category does not match");
   }
-
+  
 
   // Age
   if (
