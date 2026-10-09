@@ -128,7 +128,7 @@ function checkEligibility(student, scholarship) {
     failed++;
     reasons.push("Category does not match");
   }
-  
+
 
   // Age
   if (
@@ -165,9 +165,24 @@ function checkEligibility(student, scholarship) {
     reasons.push("Age requirement is satisfied");
   }
 
-// Gender
-if (scholarship.genders) {
-  if (scholarship.genders.includes(student.gender)) {
+
+  // Gender
+  if (
+    student.gender === undefined ||
+    student.gender === null ||
+    typeof student.gender !== "string" ||
+    student.gender.trim() === ""
+  ) {
+    reasons.push("Gender information needs verification");
+    needsVerification = true;
+    verificationCount++;
+  } else if (
+    !scholarship.genders ||
+    scholarship.genders.length === 0
+  ) {
+    passed++;
+    reasons.push("Gender requirement is not restricted");
+  } else if (scholarship.genders.includes(student.gender.trim())) {
     passed++;
     reasons.push("Gender matches");
   } else {
@@ -178,23 +193,31 @@ if (scholarship.genders) {
       hardFailure = true;
     }
   }
-}
 
-// Disability
-if (scholarship.disabilityRequired === true) {
-  if (student.disability === true) {
-    passed++;
-    reasons.push("Disability requirement is satisfied");
+
+  // Disability
+  if (scholarship.disabilityRequired === true) {
+    if (typeof student.disability !== "boolean") {
+      reasons.push("Disability information needs verification");
+      needsVerification = true;
+      verificationCount++;
+    } else if (student.disability === true) {
+      passed++;
+      reasons.push("Disability requirement is satisfied");
+    } else {
+      failed++;
+      hardFailure = true;
+      reasons.push("Disability requirement is not satisfied");
+    }
   } else {
-    failed++;
-    hardFailure = true;
-    reasons.push("Disability requirement is not satisfied");
+    passed++;
+    reasons.push("No mandatory disability requirement");
   }
-}
+
   // Calculate score
   
   // Calculate score
-  const totalChecks = passed + failed + verificationCount++;;
+  const totalChecks = passed + failed + verificationCount;
   const matchScore =
     totalChecks === 0
       ? 0
