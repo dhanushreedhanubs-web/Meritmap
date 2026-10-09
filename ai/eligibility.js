@@ -39,7 +39,7 @@ function checkEligibility(student, scholarship) {
     hardFailure = true;
     reasons.push("Family income exceeds the limit");
   }
-  
+
 
   
   
@@ -75,27 +75,41 @@ function checkEligibility(student, scholarship) {
     failed++;
     reasons.push("Category does not match");
   }
-// Age
-if (scholarship.minAge && student.age < scholarship.minAge) {
-  failed++;
-  reasons.push("Age is below the minimum requirement");
 
-  if (scholarship.ageRequired === true) {
-    hardFailure = true;
-  }
-} else if (scholarship.maxAge && student.age > scholarship.maxAge) {
-  failed++;
-  reasons.push("Age exceeds the maximum requirement");
 
-  if (scholarship.ageRequired === true) {
-    hardFailure = true;
+  // Age
+  if (
+    typeof student.age !== "number" ||
+    !Number.isFinite(student.age)
+  ) {
+    reasons.push("Age needs verification");
+    needsVerification = true;
+  } else if (
+    scholarship.minAge != null &&
+    student.age < scholarship.minAge
+  ) {
+    failed++;
+    reasons.push("Age is below the minimum requirement");
+
+    if (scholarship.ageRequired === true) {
+      hardFailure = true;
+    }
+  } else if (
+    scholarship.maxAge != null &&
+    student.age > scholarship.maxAge
+  ) {
+    failed++;
+    reasons.push("Age exceeds the maximum requirement");
+
+    if (scholarship.ageRequired === true) {
+      hardFailure = true;
+    } else {
+      reasons.push("Age requirement is not mandatory");
+    }
   } else {
-    reasons.push("Age requirement is not mandatory");
+    passed++;
+    reasons.push("Age requirement is satisfied");
   }
-} else {
-  passed++;
-  reasons.push("Age requirement is satisfied");
-}
 
 // Gender
 if (scholarship.genders) {
