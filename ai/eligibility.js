@@ -76,14 +76,21 @@ function checkEligibility(student, scholarship) {
     reasons.push("Family income exceeds the limit");
   }
   
+  
   // Marks
   if (
     typeof student.marks !== "number" ||
-    typeof scholarship.minimumMarks !== "number"
+    !Number.isFinite(student.marks) ||
+    student.marks < 0 ||
+    student.marks > 100 ||
+    typeof scholarship.minimumMarks !== "number" ||
+    !Number.isFinite(scholarship.minimumMarks) ||
+    scholarship.minimumMarks < 0 ||
+    scholarship.minimumMarks > 100
   ) {
     reasons.push("Academic marks need verification");
     needsVerification = true;
-
+    verificationCount++;
   } else if (student.marks >= scholarship.minimumMarks) {
     passed++;
     reasons.push("Academic requirement is satisfied");
@@ -95,8 +102,6 @@ function checkEligibility(student, scholarship) {
       hardFailure = true;
     }
   }
-
-
   // Category
   if (
     !scholarship.categories ||
