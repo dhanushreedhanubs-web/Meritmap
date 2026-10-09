@@ -4,7 +4,7 @@ function checkEligibility(student, scholarship) {
   let failed = 0;
   let hardFailure = false;
   let needsVerification = false;
-  
+  let verificationCount = 0;
   
   // State
   if (
@@ -15,6 +15,7 @@ function checkEligibility(student, scholarship) {
   ) {
     reasons.push("State information needs verification");
     needsVerification = true;
+    verificationCount++;
   } else if (
     student.state.trim().toLowerCase() ===
     scholarship.state.trim().toLowerCase()
@@ -38,6 +39,7 @@ function checkEligibility(student, scholarship) {
   ) {
     reasons.push("Course information needs verification");
     needsVerification = true;
+    verificationCount++;
   } else if (
     scholarship.courses.some(
       course =>
@@ -169,9 +171,14 @@ if (scholarship.disabilityRequired === true) {
   }
 }
   // Calculate score
-  const totalChecks = passed + failed;
-  const matchScore = Math.round((passed / totalChecks) * 100);
-
+  
+  // Calculate score
+  const totalChecks = passed + failed + verificationCount++;;
+  const matchScore =
+    totalChecks === 0
+      ? 0
+      : Math.round((passed / totalChecks) * 100);
+  
   // Determine status
   // Determine status
 
