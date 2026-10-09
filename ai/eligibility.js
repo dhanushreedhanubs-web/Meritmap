@@ -120,7 +120,12 @@ function checkEligibility(student, scholarship) {
   } else if (
     !scholarship.categories ||
     scholarship.categories.length === 0 ||
-    scholarship.categories.includes(student.category.trim())
+    scholarship.categories.some(
+  category =>
+    typeof category === "string" &&
+    category.trim().toLowerCase() ===
+      student.category.trim().toLowerCase()
+)
   ) {
     passed++;
     reasons.push("Category matches");
@@ -131,41 +136,58 @@ function checkEligibility(student, scholarship) {
 
 
   // Age
-  if (
+  const hasMinAge = scholarship.minAge != null;
+  const hasMaxAge = scholarship.maxAge != null;
+  const hasAgeRestriction = hasMinAge || hasMaxAge;
 
+  if (
+    (hasMinAge &&
+      (typeof scholarship.minAge !== "number" ||
+        !Number.isFinite(scholarship.minAge) ||
+        scholarship.minAge < 0)) ||
+    (hasMaxAge &&
+      (typeof scholarship.maxAge !== "number" ||
+        !Number.isFinite(scholarship.maxAge) ||
+        scholarship.maxAge < 0)) ||
+    (hasMinAge &&
+      hasMaxAge &&
+      typeof scholarship.minAge === "number" &&
+      typeof scholarship.maxAge === "number" &&
+      scholarship.minAge > scholarship.maxAge)
+  ) {
+    reasons.push("Scholarship age limits need verification");
+    needsVerification = true;
+    verificationCount++;
+  } else if (!hasAgeRestriction) {
+    passed++;
+    reasons.push("No age restriction");
+  } else if (
     typeof student.age !== "number" ||
-    !Number.isFinite(student.age)
+    !Number.isFinite(student.age) ||
+    student.age < 0
   ) {
     reasons.push("Age needs verification");
     needsVerification = true;
-  } else if (
-    scholarship.minAge != null &&
-    student.age < scholarship.minAge
-  ) {
+    verificationCount++;
+  } else if (hasMinAge && student.age < scholarship.minAge) {
     failed++;
     reasons.push("Age is below the minimum requirement");
 
     if (scholarship.ageRequired === true) {
       hardFailure = true;
     }
-  } else if (
-    scholarship.maxAge != null &&
-    student.age > scholarship.maxAge
-  ) {
+  } else if (hasMaxAge && student.age > scholarship.maxAge) {
     failed++;
     reasons.push("Age exceeds the maximum requirement");
 
     if (scholarship.ageRequired === true) {
       hardFailure = true;
-    } else {
-      reasons.push("Age requirement is not mandatory");
     }
   } else {
     passed++;
     reasons.push("Age requirement is satisfied");
   }
-
-
+  
   // Gender
   if (
     student.gender === undefined ||
@@ -177,12 +199,26 @@ function checkEligibility(student, scholarship) {
     needsVerification = true;
     verificationCount++;
   } else if (
+    scholarship.genders != null &&
+    !Array.isArray(scholarship.genders)
+  ) {
+    reasons.push("Scholarship gender criteria need verification");
+    needsVerification = true;
+    verificationCount++;
+  } else if (
     !scholarship.genders ||
     scholarship.genders.length === 0
   ) {
     passed++;
     reasons.push("Gender requirement is not restricted");
-  } else if (scholarship.genders.includes(student.gender.trim())) {
+  } else if (
+    scholarship.genders.some(
+      gender =>
+        typeof gender === "string" &&
+        gender.trim().toLowerCase() ===
+          student.gender.trim().toLowerCase()
+    )
+  ) {
     passed++;
     reasons.push("Gender matches");
   } else {
@@ -193,8 +229,6 @@ function checkEligibility(student, scholarship) {
       hardFailure = true;
     }
   }
-
-
   // Disability
   if (scholarship.disabilityRequired === true) {
     if (typeof student.disability !== "boolean") {
