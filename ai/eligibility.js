@@ -23,7 +23,15 @@ function checkEligibility(student, scholarship) {
   }
 
   // Income
-  if (student.income <= scholarship.incomeLimit) {
+  
+  // Income
+  if (
+    typeof student.income !== "number" ||
+    typeof scholarship.incomeLimit !== "number"
+  ) {
+    reasons.push("Family income needs verification");
+    needsVerification = true;
+  } else if (student.income <= scholarship.incomeLimit) {
     passed++;
     reasons.push("Income is within the limit");
   } else {
@@ -31,6 +39,7 @@ function checkEligibility(student, scholarship) {
     hardFailure = true;
     reasons.push("Family income exceeds the limit");
   }
+  
 
   
   
