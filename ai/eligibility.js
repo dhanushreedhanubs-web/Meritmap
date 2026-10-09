@@ -26,8 +26,26 @@ function checkEligibility(student, scholarship) {
     reasons.push("State does not match");
   }
 
+  
+    
+
   // Course
-  if (scholarship.courses.includes(student.course)) {
+  if (
+    typeof student.course !== "string" ||
+    student.course.trim() === "" ||
+    !Array.isArray(scholarship.courses) ||
+    scholarship.courses.length === 0
+  ) {
+    reasons.push("Course information needs verification");
+    needsVerification = true;
+  } else if (
+    scholarship.courses.some(
+      course =>
+        typeof course === "string" &&
+        course.trim().toLowerCase() ===
+          student.course.trim().toLowerCase()
+    )
+  ) {
     passed++;
     reasons.push("Course matches");
   } else {
@@ -35,7 +53,6 @@ function checkEligibility(student, scholarship) {
     reasons.push("Course does not match");
   }
 
-  // Income
   
   // Income
   if (
