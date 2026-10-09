@@ -4,8 +4,21 @@ function checkEligibility(student, scholarship) {
   let failed = 0;
   let hardFailure = false;
   let needsVerification = false;
+  
+  
   // State
-  if (student.state === scholarship.state) {
+  if (
+    typeof student.state !== "string" ||
+    student.state.trim() === "" ||
+    typeof scholarship.state !== "string" ||
+    scholarship.state.trim() === ""
+  ) {
+    reasons.push("State information needs verification");
+    needsVerification = true;
+  } else if (
+    student.state.trim().toLowerCase() ===
+    scholarship.state.trim().toLowerCase()
+  ) {
     passed++;
     reasons.push("State matches");
   } else {
@@ -79,6 +92,7 @@ function checkEligibility(student, scholarship) {
 
   // Age
   if (
+
     typeof student.age !== "number" ||
     !Number.isFinite(student.age)
   ) {
