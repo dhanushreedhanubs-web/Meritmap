@@ -3,6 +3,7 @@ function checkEligibility(student, scholarship) {
   let passed = 0;
   let failed = 0;
   let hardFailure = false;
+  let needsVerification = false;
   // State
   if (student.state === scholarship.state) {
     passed++;
@@ -31,18 +32,28 @@ function checkEligibility(student, scholarship) {
     reasons.push("Family income exceeds the limit");
   }
 
+  
+  
   // Marks
-  if (student.marks >= scholarship.minimumMarks) {
-  passed++;
-  reasons.push("Academic requirement is satisfied");
-} else {
-  failed++;
-  reasons.push("Academic marks are below the requirement");
+  if (
+    typeof student.marks !== "number" ||
+    typeof scholarship.minimumMarks !== "number"
+  ) {
+    reasons.push("Academic marks need verification");
+    needsVerification = true;
 
-  if (scholarship.minimumMarksRequired === true) {
-    hardFailure = true;
+  } else if (student.marks >= scholarship.minimumMarks) {
+    passed++;
+    reasons.push("Academic requirement is satisfied");
+  } else {
+    failed++;
+    reasons.push("Academic marks are below the requirement");
+
+    if (scholarship.minimumMarksRequired === true) {
+      hardFailure = true;
+    }
   }
-}
+
 
   // Category
   if (
@@ -109,10 +120,13 @@ if (scholarship.disabilityRequired === true) {
 
   // Determine status
   // Determine status
+
 let status;
 
 if (hardFailure) {
   status = "Not Eligible";
+} else if (needsVerification) {
+  status = "Needs Verification";
 } else if (failed === 0) {
   status = "Eligible";
 } else if (failed <= 1) {
