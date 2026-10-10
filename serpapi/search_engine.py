@@ -2,126 +2,112 @@ import os
 import serpapi
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(
+    os.path.join(os.path.dirname(__file__), "../backend/.env")
+)
 
 api_key = os.getenv("SERPAPI_KEY")
 
 if not api_key:
-    raise ValueError("SERPAPI_KEY not found in .env")
+    raise ValueError("SERPAPI_KEY not found in backend/.env")
 
 client = serpapi.Client(api_key=api_key)
 
 
 def search_scholarships(student):
-    """
-    Search scholarships based on a student's profile.
-    """
+    """Search for scholarship opportunities using the student's profile."""
+
+    state = student.get("state", "")
+    course = student.get("course", "")
+    category = student.get("category", "")
 
     query = (
-        f"{student['state']} {student['course']} scholarship "
-        f"{student['category']} SSP eligibility "
-        f"income marks 2026"
-    )
-    results = client.search({
+        f"{state} {course} scholarship {category} "
+        "government official eligibility application"
+    ).strip()
+
+    response = client.search({
         "engine": "google",
         "q": query,
-        "location": "Bengaluru, Karnataka, India",
-        "num": 10    
+        "location": "India",
+        "num": 10
     })
 
-    organic_results = results.get("organic_results", [])
-
+    organic_results = response.get("organic_results", [])
     scholarships = []
 
     for result in organic_results:
+        title = result.get("title", "") or ""
+        link = result.get("link", "") or ""
+        snippet = (
+            result.get("snippet", "")
+            or result.get("description", "")
+            or ""
+        )
 
-        title = result.get("title", "")
-        link = result.get("link", "")
-        snippet = result.get("snippet", "")
+        if not title or not link:
+            continue
 
-        text = f"{title} {snippet}".lower()
+        link_lower = link.lower()
 
-        score = 0
-
-        # Trusted sources get extra points
-        trusted_domains = [
-            ".gov.in",
-            ".nic.in",
-            "aicte-india.org",
-            "scholarships.gov.in",
-            "buddy4study.com"
-        ]
-
-        for domain in trusted_domains:
-            if domain in link.lower():
-                score += 3
-
-        # Scholarship-related keywords
-        keywords = [
-            "scholarship",
-            "scholarships",
-            "eligibility",
-            "income",
-            "sc/st",
-            "application",
-            "financial assistance",
-            "tuition fee",
-            "ssp"
-        ]
-
-        for keyword in keywords:
-            if keyword in text:
-                score += 1
-
-        # Ignore clearly unsuitable sources
         blocked_domains = [
             "facebook.com",
             "instagram.com",
             "youtube.com",
-            "scribd.com",
-            "justdial.com",
-            "bseindia.com"
+            "justdial.com"
         ]
 
-        if any(domain in link.lower() for domain in blocked_domains):
+        if any(domain in link_lower for domain in blocked_domains):
             continue
 
-        # Ignore weak results
-        if score < 2:
-            continue
+        trusted_domains = [
+            ".gov.in",
+            ".nic.in",
+            "scholarships.gov.in",
+            "aicte-india.org",
+            "buddy4study.com"
+        ]
 
-        # Identify source type
-        if ".gov.in" in link.lower() or ".nic.in" in link.lower():
-            source_type = "Government"
+        score = sum(
+            3 for domain in trusted_domains
+            if domain in link_lower
+        )
 
-        elif "instagram.com" in link.lower() or "facebook.com" in link.lower():
-            source_type = "Social Media"
+        text = f"{title} {snippet}".lower()
 
-        elif "youtube.com" in link.lower():
-            source_type = "Video"
+        keywords = [
+            "scholarship",
+            "scholarships",
+            "financial aid",
+            "financial assistance",
+            "fee reimbursement",
+            "stipend",
+            "eligibility",
+            "student grant",
+            "education assistance",
+            "ssp"
+        ]
 
-        elif "college" in link.lower() or "university" in link.lower():
-            source_type = "College/University"
+        score += sum(1 for keyword in keywords if keyword in text)
 
-        elif "scholarship" in link.lower():
-            source_type = "Scholarship Portal"
-
-        else:
-            source_type = "Other"
-
-        scholarship = {
+        scholarships.append({
             "title": title,
+            "name": title,
             "link": link,
             "snippet": snippet,
+            "description": snippet,
             "relevance_score": score,
-            "source_type": source_type
-        }
+            "source_type": (
+                "Government"
+                if ".gov.in" in link_lower or ".nic.in" in link_lower
+                else "Scholarship Portal"
+                if "scholarship" in link_lower
+                else "Other"
+            )
+        })
 
-        scholarships.append(scholarship)
-
-    # Highest relevance first
     scholarships.sort(
-        key=lambda x: x["relevance_score"],
+        key=lambda item: item["relevance_score"],
         reverse=True
     )
 
