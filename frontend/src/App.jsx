@@ -2,6 +2,8 @@ import { useState } from "react";
 import "./App.css";
 
 function App() {
+  const [scholarships, setScholarships] = useState([]);
+const [error, setError] = useState("");
   const [profile, setProfile] = useState({
     name: "",
     state: "",
@@ -71,17 +73,37 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          query: query,
-        }),
+       body: JSON.stringify({
+  query: query,
+  student: {
+    ...profile,
+    age: Number(profile.age),
+    year: Number(profile.year),
+    income: Number(profile.income),
+    marks: Number(profile.marks),
+    disability:
+      profile.disability === true ||
+      profile.disability === "true",
+  },
+}), 
       }
     );
 
     const searchData = await searchResponse.json();
 
     console.log("Scholarship results:", searchData);
+    if (!searchResponse.ok || !searchData.success) {
+  throw new Error(searchData.message || "Scholarship search failed.");
+}
 
-    alert("Scholarship search completed! 🎓");
+setScholarships(searchData.scholarships || []);
+setError("");
+
+if (!searchData.scholarships?.length) {
+  setError("No scholarships found. Try another course or state.");
+}
+
+   
   } catch (error) {
     console.error("Error:", error);
     alert("Could not connect to the backend.");
@@ -227,8 +249,73 @@ function App() {
             <button type="submit" className="submit-btn">
               Find Scholarships 🚀
             </button>
-          </form>
+                    </form>
         </section>
+
+        {/* Scholarship Search Results */}
+                {/* Scholarship Search Results */}
+        {error && (
+          <p className="search-error">
+            {error}
+          </p>
+        )}
+
+        {scholarships.length > 0 && (
+          <section className="scholarship-results">
+            <h2>🎓 Scholarship Results</h2>
+
+            <div className="scholarship-list">
+              {scholarships.map((scholarship, index) => (
+                <article
+                  className="scholarship-card"
+                  key={
+                    scholarship._id ||
+                    scholarship.applicationLink ||
+                    index
+                  }
+                >
+                  <h3>{scholarship.title}</h3>
+
+                  <p className="scholarship-description">
+                    {scholarship.description ||
+                      "No description available."}
+                  </p>
+
+                  <p>
+                    <span className="scholarship-status">
+                      {scholarship.status || "Needs Verification"}
+                    </span>
+                  </p>
+
+                  <p className="scholarship-score">
+                    <strong>Match Score:</strong>{" "}
+                    {scholarship.matchScore ?? 0}%
+                  </p>
+
+                  {scholarship.reasons?.length > 0 && (
+                    <ul className="scholarship-reasons">
+                      {scholarship.reasons.map((reason, reasonIndex) => (
+                        <li key={reasonIndex}>{reason}</li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {scholarship.applicationLink && (
+                    <a
+                      className="scholarship-link"
+                      href={scholarship.applicationLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View Scholarship ↗
+                    </a>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+    
       </main>
 
       <footer>
