@@ -2,21 +2,31 @@ const express = require("express");
 const axios = require("axios");
 const Scholarship = require("../models/Scholarship");
 const checkEligibility = require("../../ai/eligibility");
+const { explainEligibility } = require("../aiService");
 
 const router = express.Router();
 
 router.post("/search", async (req, res) => {
+  console.log("SEARCH ROUTE VERSION CHECK");
+  
   try {
     const student = req.body;
 
-    if (!student || !student.state || !student.course || !student.category) {
+    // Validate student profile
+    if (
+      !student ||
+      !student.state ||
+      !student.course ||
+      !student.category
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Student profile with state, course and category is required"
+        message:
+          "Student profile with state, course and category is required",
       });
     }
 
-    // 1. Search scholarships using the SerpApi Flask service
+    // Get scholarships from the search service
     const response = await axios.post(
       "http://127.0.0.1:5001/search",
       student
@@ -24,42 +34,66 @@ router.post("/search", async (req, res) => {
 
     const results = response.data.scholarships || [];
 
-    // 2. Convert search results into our Scholarship model format
+    // Normalize scholarship fields
     const scholarships = results.map((result) => ({
-      title: result.name || "Untitled Scholarship",
-      description: result.benefits || "",
+      title: result.name || result.title || "Untitled Scholarship",
+      description: result.description || result.benefits || "",
       eligibility: Array.isArray(result.categories)
         ? result.categories.join(", ")
-        : "",
-      applicationLink: result.link || "",
-      amount: result.benefits || "",
-      source: result.state || "SerpApi",
+        : result.eligibility || "",
+      applicationLink: result.link || result.applicationLink || "",
+      amount: result.amount || result.benefits || "",
+      source: result.source || "SerpApi",
 
-      // Save criteria only when the search service actually provides them
       state: result.state || undefined,
-      courses: Array.isArray(result.courses) ? result.courses : [],
-      incomeLimit: result.incomeLimit ?? result.income_limit ?? undefined,
-      minimumMarks: result.minimumMarks ?? result.minimum_marks ?? undefined,
+
+      courses: Array.isArray(result.courses)
+        ? result.courses
+        : [],
+
+      incomeLimit:
+        result.incomeLimit ??
+        result.income_limit ??
+        undefined,
+
+      minimumMarks:
+        result.minimumMarks ??
+        result.minimum_marks ??
+        undefined,
+
       minimumMarksRequired:
         result.minimumMarksRequired ??
         result.minimum_marks_required ??
         false,
+
       categories: Array.isArray(result.categories)
         ? result.categories
         : [],
+
       minAge: result.minAge ?? result.min_age ?? undefined,
       maxAge: result.maxAge ?? result.max_age ?? undefined,
-      ageRequired: result.ageRequired ?? result.age_required ?? false,
-      genders: Array.isArray(result.genders) ? result.genders : [],
+
+      ageRequired:
+        result.ageRequired ??
+        result.age_required ??
+        false,
+
+      genders: Array.isArray(result.genders)
+        ? result.genders
+        : [],
+
       genderRequired:
-        result.genderRequired ?? result.gender_required ?? false,
+        result.genderRequired ??
+        result.gender_required ??
+        false,
+
       disabilityRequired:
         result.disabilityRequired ??
         result.disability_required ??
-        false
+        false,
     }));
 
-    // 3. Save or reuse scholarships in MongoDB
+    // Save or update scholarships in MongoDB
     const savedScholarships = [];
 
     for (const scholarship of scholarships) {
@@ -67,12 +101,11 @@ router.post("/search", async (req, res) => {
 
       if (scholarship.applicationLink) {
         savedScholarship = await Scholarship.findOne({
-          applicationLink: scholarship.applicationLink
+          applicationLink: scholarship.applicationLink,
         });
       }
 
       if (savedScholarship) {
-        // Update stored scholarship information with the latest search result
         Object.assign(savedScholarship, scholarship);
         await savedScholarship.save();
       } else {
@@ -82,32 +115,73 @@ router.post("/search", async (req, res) => {
       savedScholarships.push(savedScholarship);
     }
 
-    // 4. Evaluate each saved scholarship using the AI eligibility checker
-    const resultsWithEligibility = savedScholarships.map((scholarship) => {
-      const eligibilityResult = checkEligibility(
-        student,
-        scholarship.toObject()
-      );
+    // Check eligibility and generate AI explanations
+    const resultsWithEligibility = await Promise.all(
+      savedScholarships.map(async (scholarship) => {
+        const scholarshipData = scholarship.toObject();
 
-      return {
-        ...scholarship.toObject(),
-        eligibilityResult
-      };
-    });
+        // Existing eligibility checker is authoritative
+        const eligibilityResult = checkEligibility(
+          student,
+          scholarshipData
+        );
 
-    // 5. Return scholarships with AI results
-    return res.json({
+        let aiExplanation = null;
+        let aiExplanationError = null;
+
+        try {
+          aiExplanation = await explainEligibility({
+            student,
+            scholarship: scholarshipData,
+            eligibilityResult,
+          });
+
+          console.log(
+            "AI explanation generated:",
+            scholarshipData.title,
+            aiExplanation
+          );
+        } catch (error) {
+          aiExplanationError = error.message;
+
+          console.error(
+            "AI explanation failed for:",
+            scholarshipData.title,
+            error.message
+          );
+        }
+
+        return {
+          ...scholarshipData,
+          eligibilityResult,
+          aiExplanation,
+          ...(aiExplanationError
+            ? { aiExplanationError }
+            : {}),
+        };
+      })
+    );
+
+    // Send results to frontend
+    return res.status(200).json({
       success: true,
       count: resultsWithEligibility.length,
-      scholarships: resultsWithEligibility
+      scholarships: resultsWithEligibility,
     });
-
   } catch (error) {
     console.error("Scholarship search failed:", error.message);
 
+    if (error.response) {
+      console.error(
+        "Search service response:",
+        error.response.data
+      );
+    }
+
     return res.status(500).json({
       success: false,
-      message: "Scholarship search failed"
+      message: "Scholarship search failed",
+      error: error.message,
     });
   }
 });
