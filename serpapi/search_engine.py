@@ -2,7 +2,8 @@ import os
 import serpapi
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "../backend/.env"))
+
 
 api_key = os.getenv("SERPAPI_KEY")
 
