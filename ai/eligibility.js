@@ -56,52 +56,63 @@ function checkEligibility(student, scholarship) {
   }
 
   // Income
-  if (
-    typeof student.income !== "number" ||
-    !Number.isFinite(student.income) ||
-    student.income < 0 ||
-    typeof scholarship.incomeLimit !== "number" ||
-    !Number.isFinite(scholarship.incomeLimit) ||
-    scholarship.incomeLimit < 0
-  ) {
-    reasons.push("Family income needs verification");
-    needsVerification = true;
-    verificationCount++;
-  } else if (student.income <= scholarship.incomeLimit) {
-    passed++;
-    reasons.push("Income is within the limit");
-  } else {
-    failed++;
-    hardFailure = true;
-    reasons.push("Family income exceeds the limit");
-  }
-  
+if (
+  typeof student.income !== "number" ||
+  !Number.isFinite(student.income) ||
+  student.income < 0
+) {
+  reasons.push("Student family income needs verification");
+  needsVerification = true;
+  verificationCount++;
+} else if (
+  typeof scholarship.incomeLimit !== "number" ||
+  !Number.isFinite(scholarship.incomeLimit) ||
+  scholarship.incomeLimit < 0
+) {
+  reasons.push("Scholarship income limit needs verification");
+  needsVerification = true;
+  verificationCount++;
+} else if (student.income <= scholarship.incomeLimit) {
+  passed++;
+  reasons.push("Income is within the limit");
+} else {
+  failed++;
+  hardFailure = true;
+  reasons.push("Family income exceeds the limit");
+}
+
   
   // Marks
-  if (
-    typeof student.marks !== "number" ||
-    !Number.isFinite(student.marks) ||
-    student.marks < 0 ||
-    student.marks > 100 ||
-    typeof scholarship.minimumMarks !== "number" ||
-    !Number.isFinite(scholarship.minimumMarks) ||
-    scholarship.minimumMarks < 0 ||
-    scholarship.minimumMarks > 100
-  ) {
-    reasons.push("Academic marks need verification");
-    needsVerification = true;
-    verificationCount++;
-  } else if (student.marks >= scholarship.minimumMarks) {
-    passed++;
-    reasons.push("Academic requirement is satisfied");
-  } else {
-    failed++;
-    reasons.push("Academic marks are below the requirement");
+if (
+  typeof student.marks !== "number" ||
+  !Number.isFinite(student.marks) ||
+  student.marks < 0 ||
+  student.marks > 100
+) {
+  reasons.push("Student academic marks need verification");
+  needsVerification = true;
+  verificationCount++;
+} else if (
+  typeof scholarship.minimumMarks !== "number" ||
+  !Number.isFinite(scholarship.minimumMarks) ||
+  scholarship.minimumMarks < 0 ||
+  scholarship.minimumMarks > 100
+) {
+  reasons.push("Scholarship minimum marks requirement needs verification");
+  needsVerification = true;
+  verificationCount++;
+} else if (student.marks >= scholarship.minimumMarks) {
+  passed++;
+  reasons.push("Academic requirement is satisfied");
+} else {
+  failed++;
+  reasons.push("Academic marks are below the requirement");
 
-    if (scholarship.minimumMarksRequired === true) {
-      hardFailure = true;
-    }
+  if (scholarship.minimumMarksRequired === true) {
+    hardFailure = true;
   }
+}
+
   // Category
 
   // Category
@@ -189,46 +200,47 @@ function checkEligibility(student, scholarship) {
   }
   
   // Gender
-  if (
-    student.gender === undefined ||
-    student.gender === null ||
-    typeof student.gender !== "string" ||
-    student.gender.trim() === ""
-  ) {
-    reasons.push("Gender information needs verification");
-    needsVerification = true;
-    verificationCount++;
-  } else if (
-    scholarship.genders != null &&
-    !Array.isArray(scholarship.genders)
-  ) {
-    reasons.push("Scholarship gender criteria need verification");
-    needsVerification = true;
-    verificationCount++;
-  } else if (
-    !scholarship.genders ||
-    scholarship.genders.length === 0
-  ) {
-    passed++;
-    reasons.push("Gender requirement is not restricted");
-  } else if (
-    scholarship.genders.some(
-      gender =>
-        typeof gender === "string" &&
-        gender.trim().toLowerCase() ===
-          student.gender.trim().toLowerCase()
-    )
-  ) {
-    passed++;
-    reasons.push("Gender matches");
-  } else {
-    failed++;
-    reasons.push("Gender does not match");
 
-    if (scholarship.genderRequired === true) {
-      hardFailure = true;
-    }
+if (
+  scholarship.genders != null &&
+  !Array.isArray(scholarship.genders)
+) {
+  reasons.push("Scholarship gender criteria need verification");
+  needsVerification = true;
+  verificationCount++;
+} else if (
+  !scholarship.genders ||
+  scholarship.genders.length === 0
+) {
+  passed++;
+  reasons.push("Gender requirement is not restricted");
+} else if (
+  student.gender === undefined ||
+  student.gender === null ||
+  typeof student.gender !== "string" ||
+  student.gender.trim() === ""
+) {
+  reasons.push("Gender information needs verification");
+  needsVerification = true;
+  verificationCount++;
+} else if (
+  scholarship.genders.some(
+    gender =>
+      typeof gender === "string" &&
+      gender.trim().toLowerCase() ===
+        student.gender.trim().toLowerCase()
+  )
+) {
+  passed++;
+  reasons.push("Gender matches");
+} else {
+  failed++;
+  reasons.push("Gender does not match");
+
+  if (scholarship.genderRequired === true) {
+    hardFailure = true;
   }
+}
   // Disability
   if (scholarship.disabilityRequired === true) {
     if (typeof student.disability !== "boolean") {

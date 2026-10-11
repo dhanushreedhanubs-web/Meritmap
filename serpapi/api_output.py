@@ -117,8 +117,7 @@ def get_scholarship_data(student):
 
             # If parser did not find state, use student's state.
             if not scholarship.get("state"):
-                scholarship["state"] = student.get("state")
-
+                 scholarship["state"] = "Unknown"
             scholarships.append(scholarship)
 
             print(
@@ -136,11 +135,7 @@ def get_scholarship_data(student):
 
         fallback_scholarship = {
             "name": title,
-            "state": student.get("state"),
-            "categories": [],
-            "courses": [],
-            "income_limit": None,
-            "minimum_marks": None,
+            "state": "Unknown",
             "domicile_required": None,
             "benefits": description or None,
             "documents": [],

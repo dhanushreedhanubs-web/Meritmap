@@ -3,6 +3,7 @@ const axios = require("axios");
 const Scholarship = require("../models/Scholarship");
 const checkEligibility = require("../../ai/eligibility");
 const { explainEligibility } = require("../aiService");
+console.log("MERITMAP SEARCH ROUTE LOADED");
 
 const router = express.Router();
 
@@ -32,8 +33,35 @@ router.post("/search", async (req, res) => {
       student
     );
 
-    const results = response.data.scholarships || [];
+  const requestedState = (student.state || "").trim().toLowerCase();
 
+const results = (response.data.scholarships || []).filter((result) => {
+  const scholarshipState = (result.state || "").trim().toLowerCase();
+
+  const text = [
+    result.name,
+    result.title,
+    result.description,
+    result.eligibility,
+    result.benefits
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  // Exclude results explicitly referring to Chhattisgarh
+  // when the student selected Karnataka.
+  if (
+    requestedState === "karnataka" &&
+    (text.includes("chhattisgarh") ||
+      text.includes("c.g. domicile"))
+  ) {
+    return false;
+  }
+
+  // Keep matching-state and unknown-state results.
+  return !scholarshipState || scholarshipState === requestedState;
+});
     // Normalize scholarship fields
     const scholarships = results.map((result) => ({
       title: result.name || result.title || "Untitled Scholarship",
@@ -45,7 +73,7 @@ router.post("/search", async (req, res) => {
       amount: result.amount || result.benefits || "",
       source: result.source || "SerpApi",
 
-      state: result.state || undefined,
+    state: result.state || "Unknown",
 
       courses: Array.isArray(result.courses)
         ? result.courses
@@ -94,26 +122,39 @@ router.post("/search", async (req, res) => {
     }));
 
     // Save or update scholarships in MongoDB
-    const savedScholarships = [];
+   const savedScholarships = [];
+const seenLinks = new Set();
 
-    for (const scholarship of scholarships) {
-      let savedScholarship = null;
+for (const scholarship of scholarships) {
+  const link = (scholarship.applicationLink || "").trim();
 
-      if (scholarship.applicationLink) {
-        savedScholarship = await Scholarship.findOne({
-          applicationLink: scholarship.applicationLink,
-        });
-      }
+  // Skip duplicate application links in this search
+  if (link && seenLinks.has(link)) {
+    console.log("Skipped duplicate scholarship:", scholarship.title);
+    continue;
+  }
 
-      if (savedScholarship) {
-        Object.assign(savedScholarship, scholarship);
-        await savedScholarship.save();
-      } else {
-        savedScholarship = await Scholarship.create(scholarship);
-      }
+  if (link) {
+    seenLinks.add(link);
+  }
 
-      savedScholarships.push(savedScholarship);
-    }
+  let savedScholarship = null;
+
+  if (link) {
+    savedScholarship = await Scholarship.findOne({
+      applicationLink: link,
+    });
+  }
+
+  if (savedScholarship) {
+    Object.assign(savedScholarship, scholarship);
+    await savedScholarship.save();
+  } else {
+    savedScholarship = await Scholarship.create(scholarship);
+  }
+
+  savedScholarships.push(savedScholarship);
+}
 
     // Check eligibility and generate AI explanations
     const resultsWithEligibility = await Promise.all(
@@ -125,6 +166,9 @@ router.post("/search", async (req, res) => {
           student,
           scholarshipData
         );
+        console.log("Student profile:", student);
+        console.log("Scholarship:", scholarshipData.title);
+        console.log("Eligibility result:", eligibilityResult);  
 
         let aiExplanation = null;
         let aiExplanationError = null;
@@ -141,6 +185,12 @@ router.post("/search", async (req, res) => {
             scholarshipData.title,
             aiExplanation
           );
+          console.log("FINAL ELIGIBILITY RESPONSE:", {
+             title: scholarshipData.title,
+                  eligibilityResult,
+                   aiExplanation,
+                 missingInformation: aiExplanation?.missingInformation,
+          });
         } catch (error) {
           aiExplanationError = error.message;
 

@@ -1,4 +1,3 @@
-
 function hasValue(value) {
   return value !== undefined && value !== null && value !== "";
 }
@@ -10,31 +9,17 @@ function sameValue(a, b) {
 function explainCriteria(student, scholarship) {
   const requirementsMet = [];
   const missingInformation = [];
-
-  function check(label, studentValue, scholarshipValue, matches) {
-    if (!hasValue(studentValue)) {
-      missingInformation.push(`Student ${label}`);
-      return;
-    }
-
-    if (!hasValue(scholarshipValue)) {
-      missingInformation.push(`Scholarship ${label} criteria`);
-      return;
-    }
-
-    if (matches) {
-      requirementsMet.push(label);
-    }
-  }
+  const criteriaNotMet = [];
 
   // State
   if (hasValue(scholarship.state)) {
-    check(
-      "state",
-      student.state,
-      scholarship.state,
-      sameValue(student.state, scholarship.state)
-    );
+    if (!hasValue(student.state)) {
+      missingInformation.push("Student state");
+    } else if (sameValue(student.state, scholarship.state)) {
+      requirementsMet.push("state");
+    } else {
+      criteriaNotMet.push("state");
+    }
   }
 
   // Course
@@ -47,14 +32,20 @@ function explainCriteria(student, scholarship) {
   if (courses.length > 0) {
     if (!hasValue(student.course)) {
       missingInformation.push("Student course");
-    } else if (courses.some(course => sameValue(student.course, course))) {
+    } else if (
+      courses.some(course => sameValue(student.course, course))
+    ) {
       requirementsMet.push("course");
+    } else {
+      criteriaNotMet.push("course");
     }
   }
 
   // Category
-  if (Array.isArray(scholarship.categories) &&
-      scholarship.categories.length > 0) {
+  if (
+    Array.isArray(scholarship.categories) &&
+    scholarship.categories.length > 0
+  ) {
     if (!hasValue(student.category)) {
       missingInformation.push("Student category");
     } else if (
@@ -63,22 +54,28 @@ function explainCriteria(student, scholarship) {
       )
     ) {
       requirementsMet.push("category");
+    } else {
+      criteriaNotMet.push("category");
     }
   }
 
-  // Income limit: lower income must be at or below the limit
+  // Income limit
   if (hasValue(scholarship.incomeLimit)) {
     const income = Number(student.income);
     const limit = Number(scholarship.incomeLimit);
 
     if (!hasValue(student.income) || !Number.isFinite(income)) {
       missingInformation.push("Student income");
-    } else if (Number.isFinite(limit) && income <= limit) {
+    } else if (!Number.isFinite(limit)) {
+      missingInformation.push("Verified scholarship income limit");
+    } else if (income <= limit) {
       requirementsMet.push("income");
+    } else {
+      criteriaNotMet.push("income");
     }
   }
 
-  // Minimum marks, only when explicitly required
+  // Minimum marks
   if (
     scholarship.minimumMarksRequired === true &&
     hasValue(scholarship.minimumMarks)
@@ -88,34 +85,52 @@ function explainCriteria(student, scholarship) {
 
     if (!hasValue(student.marks) || !Number.isFinite(marks)) {
       missingInformation.push("Student marks");
-    } else if (Number.isFinite(minimum) && marks >= minimum) {
+    } else if (!Number.isFinite(minimum)) {
+      missingInformation.push("Verified minimum marks requirement");
+    } else if (marks >= minimum) {
       requirementsMet.push("minimum marks");
+    } else {
+      criteriaNotMet.push("minimum marks");
     }
   }
 
-  // Age, only when explicitly required
+  // Age
   if (scholarship.ageRequired === true) {
     if (!hasValue(student.age)) {
       missingInformation.push("Student age");
     } else {
       const age = Number(student.age);
-      const validMin = !hasValue(scholarship.minAge) ||
-        age >= Number(scholarship.minAge);
-      const validMax = !hasValue(scholarship.maxAge) ||
-        age <= Number(scholarship.maxAge);
+      const minAge = hasValue(scholarship.minAge)
+        ? Number(scholarship.minAge)
+        : null;
+      const maxAge = hasValue(scholarship.maxAge)
+        ? Number(scholarship.maxAge)
+        : null;
 
-      if (
-        Number.isFinite(age) &&
-        (hasValue(scholarship.minAge) || hasValue(scholarship.maxAge)) &&
-        validMin &&
-        validMax
+      if (!Number.isFinite(age)) {
+        missingInformation.push("Valid student age");
+      } else if (
+        (minAge !== null && !Number.isFinite(minAge)) ||
+        (maxAge !== null && !Number.isFinite(maxAge))
       ) {
+        missingInformation.push("Verified scholarship age criteria");
+      } else if (
+        minAge === null &&
+        maxAge === null
+      ) {
+        missingInformation.push("Scholarship age criteria");
+      } else if (
+        (minAge !== null && age < minAge) ||
+        (maxAge !== null && age > maxAge)
+      ) {
+        criteriaNotMet.push("age");
+      } else {
         requirementsMet.push("age");
       }
     }
   }
 
-  // Gender, only when explicitly required
+  // Gender
   if (
     scholarship.genderRequired === true &&
     Array.isArray(scholarship.genders) &&
@@ -129,22 +144,79 @@ function explainCriteria(student, scholarship) {
       )
     ) {
       requirementsMet.push("gender");
+    } else {
+      criteriaNotMet.push("gender");
     }
   }
 
-  // Disability, only when explicitly required
+  // Disability
   if (scholarship.disabilityRequired === true) {
     if (typeof student.disability !== "boolean") {
       missingInformation.push("Student disability information");
     } else if (student.disability === true) {
       requirementsMet.push("disability");
+    } else {
+      criteriaNotMet.push("disability");
     }
   }
 
-  return { requirementsMet, missingInformation };
+  return {
+    requirementsMet,
+    missingInformation,
+    criteriaNotMet,
+  };
 }
 
-async function explainEligibility({
+function buildExplanation(eligibilityResult, criteria) {
+  const status = eligibilityResult.status || "Needs Verification";
+  const reasons = Array.isArray(eligibilityResult.reasons)
+    ? eligibilityResult.reasons
+    : [];
+
+  const parts = [];
+
+  if (eligibilityResult.eligible === true) {
+    parts.push(
+      "According to the backend eligibility check, the student is eligible for this scholarship."
+    );
+  } else if (eligibilityResult.eligible === false) {
+    parts.push(
+      "According to the backend eligibility check, the student is not currently marked as eligible for this scholarship."
+    );
+  } else {
+    parts.push(
+      "The backend eligibility result is inconclusive. Please verify the scholarship requirements and student information."
+    );
+  }
+
+  parts.push(`Eligibility status: ${status}.`);
+
+  if (criteria.requirementsMet.length > 0) {
+    parts.push(
+      `Requirements matched: ${criteria.requirementsMet.join(", ")}.`
+    );
+  }
+
+  if (criteria.criteriaNotMet.length > 0) {
+    parts.push(
+      `Criteria not met: ${criteria.criteriaNotMet.join(", ")}.`
+    );
+  }
+
+  if (criteria.missingInformation.length > 0) {
+    parts.push(
+      `Information needing verification: ${criteria.missingInformation.join(", ")}.`
+    );
+  }
+
+  if (reasons.length > 0) {
+    parts.push(`Backend notes: ${reasons.join("; ")}.`);
+  }
+
+  return parts.join(" ");
+}
+
+ async function explainEligibility({
   student,
   scholarship,
   eligibilityResult,
@@ -155,108 +227,100 @@ async function explainEligibility({
     );
   }
 
-  // JavaScript calculates these fields; Ollama only writes the explanation.
-  const criteria = explainCriteria(student, scholarship);
+  console.log("UPDATED aiService.js IS RUNNING");
 
-  const prompt = `
-You explain scholarship eligibility results in clear, simple language.
+  // JavaScript, not the AI model, determines the criteria lists.
+  
+const criteria = explainCriteria(student, scholarship);
 
-The backend eligibility decision is authoritative. Do not change or
-contradict it. Do not independently decide eligibility.
+// Include verification requirements reported by the authoritative checker.
+const reasons = Array.isArray(eligibilityResult.reasons)
+  ? eligibilityResult.reasons
+  : [];
 
-Use only the supplied data. Do not invent facts, requirements, deadlines,
-documents, benefits, or application instructions.
+  const verificationMap = [
+  ["Student family income needs verification", "Student income"],
+  ["Scholarship income limit needs verification", "Scholarship income limit"],
+  ["Student academic marks need verification", "Student marks"],
+  ["Scholarship minimum marks requirement needs verification", "Scholarship minimum marks requirement"],
+  ["Gender information needs verification", "Student gender"],
+  ["Age information needs verification", "Student age"],
+  ["Disability information needs verification", "Student disability information"],
+];
 
-The pre-calculated requirementsMet and missingInformation lists are
-authoritative. Do not add, remove, or change their items.
-
-Return valid JSON with exactly these four keys:
-{
-  "explanation": "string",
-  "requirementsMet": ["string"],
-  "missingInformation": ["string"],
-  "nextSteps": ["string"]
+for (const [reason, field] of verificationMap) {
+  if (
+    reasons.some((item) =>
+      item.toLowerCase().includes(reason.toLowerCase())
+    ) &&
+    !criteria.missingInformation.includes(field)
+  ) {
+    criteria.missingInformation.push(field);
+    console.log("MISSING INFORMATION ADDED:", criteria.missingInformation);
+  }
 }
 
-The explanation must accurately describe the backend decision and any
-provided reasons. Do not claim every requirement is met if the backend
-says otherwise. If reasons are empty, do not invent failed criteria.
-
-Use the supplied application link for next steps only if one exists.
-If there is no application link, use an empty nextSteps array.
-
-STUDENT:
-${JSON.stringify(student)}
-
-SCHOLARSHIP:
-${JSON.stringify(scholarship)}
-
-AUTHORITATIVE ELIGIBILITY RESULT:
-${JSON.stringify(eligibilityResult)}
-
-PRE-CALCULATED REQUIREMENTS MET:
-${JSON.stringify(criteria.requirementsMet)}
-
-PRE-CALCULATED MISSING INFORMATION:
-${JSON.stringify(criteria.missingInformation)}
-`;
-
-  let response;
-
-  try {
-    response = await fetch("http://localhost:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "scholarship-ai",
-        prompt,
-        stream: false,
-        format: "json",
-      }),
-    });
-  } catch (error) {
-    throw new Error(
-      `Could not connect to Ollama at localhost:11434: ${error.message}`
-    );
-  }
-
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(
-      `Ollama returned HTTP ${response.status}: ${details}`
-    );
-  }
-
-  const data = await response.json();
-  let result;
-
-  try {
-    result = JSON.parse(data.response);
-  } catch {
-    throw new Error("Ollama returned invalid JSON for the explanation");
-  }
-
-  if (typeof result.explanation !== "string") {
-    throw new Error("Ollama returned an invalid explanation");
-  }
+  // Build a reliable explanation directly from the authoritative result.
+  const explanation = buildExplanation(eligibilityResult, criteria);
+  console.log("DETERMINISTIC EXPLANATION FUNCTION CALLED");
 
   const applicationLink = scholarship.applicationLink;
 
+  const nextSteps = [];
+
+ 
+if (criteria.missingInformation.length > 0) {
+  const scholarshipInfoMissing = criteria.missingInformation.some(
+    (item) =>
+      item.toLowerCase().includes("scholarship") ||
+      item.toLowerCase().includes("requirement")
+  );
+
+  const studentInfoMissing = criteria.missingInformation.some(
+    (item) =>
+      !item.toLowerCase().includes("scholarship") &&
+      !item.toLowerCase().includes("requirement")
+  );
+
+  if (scholarshipInfoMissing) {
+    nextSteps.push(
+      "Verify the missing scholarship requirements using the official scholarship guidelines."
+    );
+  }
+
+  if (studentInfoMissing) {
+    nextSteps.push(
+      "Provide or verify the missing student information."
+    );
+  }
+}
+
+if (criteria.criteriaNotMet.length > 0) {
+  nextSteps.push(
+    "Review the criteria that do not match your profile before applying."
+  );
+}
+
+if (
+  eligibilityResult.eligible === true &&
+  hasValue(applicationLink)
+) {
+  nextSteps.push(`Apply using the provided link: ${applicationLink}`);
+} else if (
+  eligibilityResult.eligible !== true &&
+  hasValue(applicationLink)
+) {
+  nextSteps.push(
+    `Review the official scholarship details: ${applicationLink}`
+  );
+}
+
+
   return {
-    explanation:
-  result.explanation.trim().length > 20 &&
-  /[.!?]$/.test(result.explanation.trim())
-    ? result.explanation.trim()
-    : eligibilityResult.eligible === true
-      ? "According to the backend eligibility check, the student is eligible for this scholarship."
-      : eligibilityResult.eligible === false
-        ? "According to the backend eligibility check, the student is not eligible for this scholarship."
-        : "Please review the backend eligibility result for this scholarship.",
+    explanation,
     requirementsMet: criteria.requirementsMet,
     missingInformation: criteria.missingInformation,
-    nextSteps: hasValue(applicationLink)
-      ? [`Apply using the provided link: ${applicationLink}`]
-      : [],
+    nextSteps,
   };
 }
 
